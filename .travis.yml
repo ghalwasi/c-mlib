@@ -1,0 +1,25 @@
+language: c
+sudo: required
+before_install: bash .travis_deps.sh
+matrix:
+  include:
+  - os: linux
+    compiler: clang
+    dist: trusty
+  - os: linux
+    compiler: gcc-4.8
+    dist: trusty
+  - os: linux
+    compiler: gcc-4.9
+    dist: trusty
+  - os: linux
+    compiler: gcc-5
+    dist: trusty
+  - os: osx
+    compiler: clang
+  - os: osx
+    compiler: gcc
+    env: CMAKE_FLAGS=-DCMAKE_C_COMPILER=gcc
+
+script:
+- bash .travis.sh
