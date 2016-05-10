@@ -1,7 +1,9 @@
 #define LOG_TAG "main"
+#include <pthread.h>
+#include <dslink/mlib_util.h>
 
-#include <dslink/log.h>
-#include <dslink/requester.h>
+int count = 1;
+extern DSLink *link;
 
 void on_req_close(struct DSLink *link, ref_t *req_ref, json_t *resp) {
     (void) link;
@@ -24,10 +26,7 @@ void on_invoke_updates(struct DSLink *link, ref_t *req_ref, json_t *resp) {
     dslink_free(data);
 }
 
-ref_t *streamInvokeRef = NULL;
-void on_timer_fire(uv_timer_t *timer) {
-    static int count = 0;
-
+void on_invoke_timer_fire(uv_timer_t *timer) {
     DSLink *link = timer->data;
 
     if (count == 3) {
@@ -38,38 +37,23 @@ void on_timer_fire(uv_timer_t *timer) {
         return;
     }
 
+    json_t *params = json_object();
+    json_object_set_new(params, "command", json_string("ls"));
 
-    // set value
-    json_t *value = json_real(rand());
+    configure_request(dslink_requester_invoke(
+        link,
+        "/downstream/System/Execute_Command",
+        params,
+        on_invoke_updates
+    ));
+
     configure_request(dslink_requester_set(
         link,
         "/data/c-sdk/requester/testNumber",
-        value
+        json_real(rand())
     ));
-    json_decref(value);
-
-    // stream invoke
-    json_t *params = json_object();
-    json_object_set_new(params, "Path", json_string("/data/test_c_sdk"));
-    json_object_set_new(params, "Value", json_integer(count));
-    RequestHolder *holder = streamInvokeRef->data;
-    dslink_requester_invoke_update_params(link, holder->rid, params);
-    json_decref(params);
 
     count++;
-}
-void start_stream_invoke(DSLink *link) {
-    json_t *params = json_object();
-    json_object_set_new(params, "Path", json_string("/data/test_c_sdk"));
-    json_object_set_new(params, "Value", json_integer(-1));
-    streamInvokeRef = dslink_requester_invoke(
-            link,
-            "/data/publish",
-            params,
-            on_invoke_updates
-    );
-    json_decref(params);
-    configure_request(streamInvokeRef);
 }
 
 void on_list_update(struct DSLink *link, ref_t *req_ref, json_t *resp) {
@@ -115,12 +99,24 @@ void on_value_update(struct DSLink *link, uint32_t sid, json_t *val, json_t *ts)
     (void) link;
     (void) ts;
     (void) sid;
-    printf("Got value %f\n", json_real_value(val));
-    dslink_requester_unsubscribe(link, sid);
+    printf("%s:Got value %f\n", __FUNCTION__,json_real_value(val));
+    //dslink_requester_unsubscribe(link, sid);
 }
 
-void init(DSLink *link) {
+#if 0
+static void on_value_publish_update(struct DSLink *link, uint32_t sid, json_t *val, json_t *ts) {
     (void) link;
+    (void) ts;
+    (void) sid;
+    printf("%s:Got value %f\n", __FUNCTION__, json_real_value(val));
+    //dslink_requester_unsubscribe(link, sid);
+}
+#endif
+
+void init(DSLink *dslink) {
+    (void) dslink;
+    link = dslink;
+
     log_info("Initialized!\n");
 }
 
@@ -135,17 +131,43 @@ void disconnected(DSLink *link) {
 }
 
 void requester_ready(DSLink *link) {
-    dslink_requester_list(link, "/downstream/nonexisting", on_list_update);
-    dslink_requester_list(link, "/downstream", on_list_update);
+    //char t[100] = "system.devices.d1.sensors.s1"; 
+    //(void)dslink_create_topic(link, t);
+    //(void)dslink_delete_topic(link, t);
+    //(void)mlib_pubsub_subscribe_topic(link, "system.devices.d1.sensors.s1", on_value_update);
+    (void)mlib_pubsub_subscribe_topic(link, "system.devices.d1.sensors.s1", on_value_update);
+    //dslink_requester_list(link, "/downstream", on_list_update);
+    //dslink_requester_list(link, "/downstream/pppppppublisher", on_list_update);
+    dslink_requester_list(link, "/downstream/publisher", on_list_update);
+    //dslink_requester_list(link, "/downstream/token", on_list_update);
 }
 
-int main(int argc, char **argv) {
-    DSLinkCallbacks cbs = {
+
+void* thread_f1(void *ptr) {
+     DSLinkCallbacks cbs = {
         init,
         connected,
         disconnected,
         requester_ready
-    };
+     };
+ 
+     
+    printf("\nStarting DSlink\n");
+    dslink_init(2, ptr, "subscriber", 1, 0, &cbs);
+    printf("\nDSlink Stopped\n");
+    pthread_exit(0);
+}
 
-    return dslink_init(argc, argv, "client", 1, 1, &cbs);
+int main(int argc, char **argv) {
+    (void) argc;
+    pthread_t id1;
+    pthread_attr_t attr1;
+
+    pthread_attr_init(&attr1);
+
+    if (pthread_create(&id1, &attr1, thread_f1, argv)) {
+        printf("Thread init failed");
+    }
+
+    pthread_join(id1, NULL);
 }

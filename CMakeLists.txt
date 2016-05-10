@@ -122,6 +122,7 @@ set(DSLINK_SRC
     "${DSLINK_SRC_DIR}/utils.c"
     "${DSLINK_SRC_DIR}/ws.c"
     "${DSLINK_SRC_DIR}/requester.c"
+    "${DSLINK_SRC_DIR}/mlib_util.c"
 )
 
 set(LIBRARY_SRC
@@ -245,7 +246,7 @@ endif()
 ###### Configure Examples ######
 
 if (DSLINK_BUILD_EXAMPLES)
-    foreach(example "responder" "requester" "storage" "client")
+    foreach(example "responder" "requester" "storage" "subscriber" "publisher")
         include("${CMAKE_CURRENT_SOURCE_DIR}/examples/${example}/CMakeLists.txt")
         add_executable(${example} ${EXAMPLE_SRC})
         target_link_libraries(${example} sdk_dslink_c-static)

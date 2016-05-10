@@ -3,8 +3,6 @@
 #include <assert.h>
 #include <broker/utils.h>
 
-#define LOG_TAG "broker-list"
-#include <dslink/log.h>
 #include "broker/net/ws.h"
 #include "broker/broker.h"
 #include "broker/msg/msg_list.h"
@@ -267,7 +265,6 @@ int broker_msg_handle_list(RemoteDSLink *link, json_t *req) {
 //        return 0;
 //    }
 
-log_info("%s: entered",__FUNCTION__);
     char *out = NULL;
     BrokerNode *node = broker_node_get(link->broker->root, path, &out);
 
@@ -288,7 +285,6 @@ log_info("%s: entered",__FUNCTION__);
     }
 
     if (node) {
-log_info("%s: node is present",__FUNCTION__);
         if (node->type == REGULAR_NODE) {
             broker_list_self(link, node, rid);
         } else if (node->type == DOWNSTREAM_NODE) {
@@ -299,10 +295,8 @@ log_info("%s: node is present",__FUNCTION__);
             broker_list_dslink(link, (DownstreamNode *) node, out, reqRid);
         }
     } else if (dslink_str_starts_with(path, "/defs/")) {
-log_info("%s: node is NOT present 1",__FUNCTION__);
         broker_utils_send_static_list_resp(link, req);
     } else /*if (dslink_str_starts_with(path, "/downstream/") || dslink_str_starts_with(path, "/upstream/"))*/{
-log_info("%s: node is NOT present 2",__FUNCTION__);
         broker_utils_send_disconnected_list_resp(link, req);
     }
 

@@ -20,5 +20,3 @@ Execute the following command:
 ## Windows
 
 **Coming Soon**
-# c-mlib
-# c-mlib

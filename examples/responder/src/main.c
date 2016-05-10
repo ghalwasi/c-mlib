@@ -49,5 +49,5 @@ int main(int argc, char **argv) {
     // Initializes a DSLink and handles reconnection.
     // Pass command line arguments, our dsId,
     // are we a requester?, are we a responder?, and a reference to our callbacks.
-    return dslink_init(argc, argv, "responder", 1, 1, &cbs);
+    return dslink_init(argc, argv, "C-Responder", 0, 1, &cbs);
 }

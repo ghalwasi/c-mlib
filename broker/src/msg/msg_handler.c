@@ -36,8 +36,6 @@ void broker_handle_req(RemoteDSLink *link, json_t *req) {
         return;
     }
 
-    printf("\n%s : entered",__FUNCTION__);
-
     const char *method = json_string_value(json_object_get(req, "method"));
     uint32_t r = (uint32_t) json_integer_value(jRid);
     ref_t *ref = dslink_map_get(&link->requester_streams, &r);
