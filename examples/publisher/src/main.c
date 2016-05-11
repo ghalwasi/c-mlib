@@ -43,7 +43,6 @@ static void on_value_publish_update(struct DSLink *link, ref_t *req, json_t *res
     char *data = json_dumps(resp, JSON_INDENT(2));
     printf("%s: Got invoke %s\n", __FUNCTION__, data);
     dslink_free(data);
-    //dslink_requester_unsubscribe(link, sid);
 }
 
 void init(DSLink *dslink) {
@@ -65,62 +64,55 @@ void disconnected(DSLink *link) {
     log_info("Disconnected!\n");
 }
 
-#if 0
-void on_invoke_timer_fire(uv_timer_t *timer) {
-    DSLink *link = timer->data;
-
-    double x = rand() / 1000000.0;
-    json_t *params;
-    params = json_object();
-    json_object_set(params, "Path", json_string("/data/system/devices/d1/sensors/s1"));
-    json_object_set(params, "Value", json_integer((int)x));
-    (void)mlib_pubsub_publish_topic(link, "system.devices.d1.sensors.s1", on_value_publish_update, params);
-}
-
-void requester_ready(DSLink *link) {
-
-    char t[100] = "system.devices.d1.sensors.s1"; 
-    (void)dslink_create_topic(link, t);
-
-    uv_timer_t *timer = malloc(sizeof(uv_timer_t));
-    timer->data = link;
-    uv_timer_init(&link->loop, timer);
-    uv_timer_start(timer, on_invoke_timer_fire, 0, 5000);
-}
-#endif
-
-#if 1
+TupleContext *tcxt = NULL;
+PubSubCxt *cxt = NULL;
 void on_invoke_timer_fire(uv_timer_t *timer) {
     PubSubCxt *cxt = timer->data;
 
     double x = rand() / 1000000.0;
-    json_t *value = json_integer((int)x);
-    (void)mlib_pubsub_publish_topic(cxt, value);
+    json_t *v1 = json_integer((int)x);
+    json_t *v2 = json_integer((int)x+1);
+    json_t *v = json_array();
+    json_t *val = json_array();
+    json_t *values = json_object();
+    json_array_append_new(v, v1);
+    json_array_append_new(v, v2);
+    json_object_set(values, "values", v);
+    json_array_append_new(val, values);
+    tcxt->timestamp = mlib_util_current_time_in_msec();
+    (void)mlib_pubsub_publish_topic(cxt, tcxt, val);
 }
 
-PubSubCxt *cxt = NULL;
 void requester_ready(DSLink *link) {
 
     char t[100] = "system.devices.d1.sensors.s1"; 
     //(void)dslink_create_topic(link, t);
 
     cxt = dslink_malloc (sizeof(PubSubCxt));
-
     if (!cxt) {
         printf("\n Error!!! malloc failed");
         return;
     }
-
     cxt->topic = dslink_strdup(t);
     cxt->cb = on_value_publish_update;
     cxt->is_pub = 1;
+
+    tcxt = dslink_malloc (sizeof(TupleContext));
+    if (!tcxt) {
+        printf("\n Error!!! malloc failed");
+        return;
+    }
+    tcxt->sourceId = dslink_strdup("GPSSensor");
+    tcxt->dataSchemaId = dslink_strdup("GPSSchema");
+    tcxt->timestamp = mlib_util_current_time_in_msec();
+    tcxt->dataSourceType = SENSOR;
+    tcxt->deviceId = dslink_strdup("DeviceA");
     
     uv_timer_t *timer = malloc(sizeof(uv_timer_t));
     timer->data = cxt;
     uv_timer_init(&link->loop, timer);
     uv_timer_start(timer, on_invoke_timer_fire, 0, 5000);
 }
-#endif
 
 
 void* thread_f1(void *ptr) {

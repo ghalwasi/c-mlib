@@ -270,56 +270,97 @@ mlib_pubsub_subscribe_topic(DSLink *link, const char *topic, value_sub_cb cb)
     return (TRUE);
 }
 
+
+/*------------------------------------------------------------------
+ |  Function: mlib_pubsub_publish_topic 
+ |
+ |  Purpose: This function is used to publish data to a topic. 
+ |
+ |  Parameters:
+ |      cxt (IN) This is a PubSubCxt.
+ |      tcxt (IN) This is a TupleContext.
+ |      value (IN) This is a value to be published. 
+ |
+ |  Returns: bool. TRUE if publish is sucessfull, FALSE otherwise.   
+ *-------------------------------------------------------------------*/
 bool
-mlib_pubsub_publish_topic(PubSubCxt *cxt, json_t *value)
+mlib_pubsub_publish_topic(PubSubCxt *cxt, TupleContext *tcxt, json_t *value)
 {
     ref_t *ref = NULL;
     json_t *params = NULL;
-    char *path;
+    json_t *context = NULL;
+    json_t *val = NULL;
+    char *path = NULL;
+    char *data_dump = NULL;
+
     /*
      * Check for NULL pointers.
      */
-#if 0
-    if (!link || !topic) {
-        log_err("%s:%d: DSLink or Topic can't be NULL\n", __FUNCTION__, __LINE__);
+    if (!cxt || !value) {
+        log_err("%s:%d: PubSub Context or Value can't be NULL\n", __FUNCTION__, __LINE__);
         return (FALSE);
     }
-#endif
-    path = (char *)dslink_malloc(100);
 
-#if 1
+    /*
+     * Prepare a JSON object for Tuple Context if it is present.
+     */
+    if (tcxt) {
+        context = json_object();
+        json_object_set(context, TIMESTAMP, json_integer((uint64_t)tcxt->timestamp));
+        json_object_set(context, DATA_SOURCE_TYPE, json_string(DATA_SOURCE_TYPE_STRING[tcxt->dataSourceType]));
+        json_object_set(context, DATA_SCHEMA_ID, json_string(tcxt->dataSchemaId));
+        json_object_set(context, SOURCE_ID, json_string(tcxt->sourceId));
+        json_object_set(context, DEVICE_ID, json_string(tcxt->deviceId));
+    }
+
+    /*
+     * This is the case of first time publish to a topic. 
+     */
     if (cxt->rid == 0) {
+        path = (char *)dslink_malloc(MLIB_BUFFER_SIZE);
         mlib_topic_to_path(cxt->topic, &path);
-        log_info("%s:%d: First time call for publish to topic %s and path %s\n", __FUNCTION__, __LINE__, cxt->topic, path);
-        cxt->path = dslink_strdup(path);
+        cxt->path = path;
         params = json_object();
-        json_object_set(params, "Path", json_string(path));
-        json_object_set(params, "Value", value);
-        log_info("%s:%d: Calling invoke for publish to path %s\n", __FUNCTION__, __LINE__, cxt->path);
-        if (link){
-            log_info("%s:%d: link is not null \n", __FUNCTION__, __LINE__);
+        val = json_object();
+        json_object_set(params, "Path", json_string(cxt->path));
+        json_object_set(params, "Value", val);
+        if (context) {
+            json_object_set(val, "c", context);
         }
-        if (cxt->cb){
-            log_info("%s:%d: cxt->cb is not null \n", __FUNCTION__, __LINE__);
-        }
+        json_object_set(val, "d", value);
         ref = dslink_requester_invoke(link, "/data/publish", params, cxt->cb);
+        data_dump = json_dumps(params, JSON_INDENT(2));
+        log_info("%s:%d: First time publish to path %s with params %s\n",
+                 __FUNCTION__, __LINE__, cxt->path, data_dump);
         if (ref) {
             RequestHolder *holder;
             holder = ref->data;
-            log_info("%s:%d: rid is %d\n", __FUNCTION__, __LINE__, holder->rid);
             cxt->rid = holder->rid;
             configure_request(ref);
         } else {
             log_err("%s:%d: dslink_requester_invoke failed\n", __FUNCTION__, __LINE__);
+            dslink_free(data_dump);
+            return (FALSE);
         }
     } else {
+        /*
+         * This is a continuous publish case.
+         */
         params = json_object();
+        val = json_object();
         json_object_set(params, "Path", json_string(cxt->path));
-        json_object_set(params, "Value", value);
-        log_info("%s:%d: Calling continious invoke for publish to path %s\n", __FUNCTION__, __LINE__, cxt->path);
+        json_object_set(params, "Value", val);
+        if (context) {
+            json_object_set(val, "c", context);
+        }
+        json_object_set(val, "d", value);
         dslink_requester_invoke_update_params(link, cxt->rid, params);
+        data_dump = json_dumps(params, JSON_INDENT(2));
+        log_info("%s:%d: Continuous invoke for publish to path %s with params as %s\n",
+                 __FUNCTION__, __LINE__, cxt->path, data_dump);
     }
-#endif
+
+    dslink_free(data_dump);
     return (TRUE);
 }
 

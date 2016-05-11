@@ -103,16 +103,6 @@ void on_value_update(struct DSLink *link, uint32_t sid, json_t *val, json_t *ts)
     //dslink_requester_unsubscribe(link, sid);
 }
 
-#if 0
-static void on_value_publish_update(struct DSLink *link, uint32_t sid, json_t *val, json_t *ts) {
-    (void) link;
-    (void) ts;
-    (void) sid;
-    printf("%s:Got value %f\n", __FUNCTION__, json_real_value(val));
-    //dslink_requester_unsubscribe(link, sid);
-}
-#endif
-
 void init(DSLink *dslink) {
     (void) dslink;
     link = dslink;
@@ -139,7 +129,7 @@ void requester_ready(DSLink *link) {
     //dslink_requester_list(link, "/downstream", on_list_update);
     //dslink_requester_list(link, "/downstream/pppppppublisher", on_list_update);
     dslink_requester_list(link, "/downstream/publisher", on_list_update);
-    //dslink_requester_list(link, "/downstream/token", on_list_update);
+    dslink_requester_list(link, "/downstream/token", on_list_update);
 }
 
 
